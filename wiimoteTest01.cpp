@@ -13,6 +13,49 @@ g++ wiimoteTest01.cpp -lwiiuse -lbluetooth -lm
 #define MAX_WIIMOTES    4
 
 using namespace std;
+
+
+void handle_event (struct wiimote_t* wm){
+	
+	if (IS_PRESSED(wm, WIIMOTE_BUTTON_A)) {
+		cout << "A pressed" << endl;
+	}
+	if (WIIUSE_USING_ACC(wm)) {
+		printf("wiimote roll = %f [%f]\n", wm->orient.roll, wm->orient.a_roll);
+		printf("wiimote pitch = %f [%f]\n", wm->orient.pitch, wm->orient.a_pitch);
+		printf("wiimote yaw = %f\n", wm->orient.yaw);
+	}
+
+	if (WIIUSE_USING_IR(wm)) {
+		int i = 0;
+		/* go through each of the 4 possible IR sources */
+		for (; i < 4; ++i) {
+			/* check if the source is visible */
+			if (wm->ir.dot[i].visible) {
+				printf("IR source %i: (%u, %u)\n", i, wm->ir.dot[i].x, wm->ir.dot[i].y);
+			}
+		}
+		printf("IR cursor: (%u, %u)\n", wm->ir.x, wm->ir.y);
+		printf("IR z distance: %f\n", wm->ir.z);
+	}
+
+}
+
+
+
+short any_wiimote_connected(wiimote** wm, int wiimotes) {
+	int i;
+	if (!wm) {
+		return 0;
+	}
+	for (i = 0; i < wiimotes; i++) {
+	/*	if (wm[i] && WIIMOTE_IS_CONNECTED(wm[i])) {
+			return 1;
+		}*/
+	}
+	return 0;
+}
+
 int main() {
   wiimote** wiimotes; //Declaration d'un tableau de pointeurs wiimote
   int found, connected;
@@ -60,7 +103,33 @@ int main() {
   //usleep(200000);
   wiiuse_rumble(wiimotes[0], 0);
   wiiuse_rumble(wiimotes[1], 0);
- 
+	
+	wiiuse_motion_sensing(wiimotes[0], 1); // active accelerometre
+	wiiuse_set_ir(wiimotes[0], 1); // active IR
+	wiiuse_set_aspect_ratio(wiimotes[0], WIIUSE_ASPECT_16_9); 
+	wiiuse_set_ir_position(wiimotes[0], WIIUSE_IR_ABOVE); 
+	wiiuse_set_ir_vres(wiimotes[0], 1066, 600); 
+		
+	while (true) {
+		if (wiiuse_poll(wiimotes, MAX_WIIMOTES)) {
+	/*
+	* This happens if something happened on any wiimote.
+	* So go through each one and check if anything happened.
+	*/
+
+			for (int i = 0; i < MAX_WIIMOTES; ++i) {
+				switch (wiimotes[i]->event) {
+					case WIIUSE_EVENT:
+						/* a generic event occurred */
+						handle_event(wiimotes[i]);
+						break;
+					default: 
+						cout << "default " << endl;
+						break;
+				}
+			}
+		}
+	}
   //Timout des wiimotes, valeur max pour éviter d'avoir des messages d'erreur
   wiiuse_set_timeout(wiimotes,MAX_WIIMOTES,0xFF,0xFF);
  
@@ -69,5 +138,6 @@ int main() {
   //Disconnect the wiimotes
   wiiuse_cleanup(wiimotes, MAX_WIIMOTES);
  
+
   return 0;
 }	
